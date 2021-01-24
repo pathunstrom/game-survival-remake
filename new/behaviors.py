@@ -3,7 +3,6 @@ from random import uniform
 from time import perf_counter
 from typing import Any, Callable, Union
 
-
 import misbehave
 import ppb
 
@@ -30,7 +29,7 @@ def move_to_target(target_attribute: str):
     def move_to_target_inner(actor, context):
         target_position = getattr(actor, target_attribute)
         actor.position += (target_position - actor.position).normalize() * actor.speed * context.event.time_delta
-        if (target_position - actor.position).length <= actor.size:
+        if (target_position - actor.position).length <= actor.size * 1.5:
             return misbehave.State.SUCCESS
         return misbehave.State.RUNNING
     return move_to_target_inner
@@ -74,8 +73,6 @@ def wander(direction_attr, speed_attr, time_attr, start_attr):
         speed = getattr(actor, speed_attr)
         time = getattr(actor, time_attr)
         movement_vector = direction * speed * context.event.time_delta
-        if movement_vector.length > actor.speed:
-            raise ValueError(f"Way too fast\n\tdirection: {direction}\n\tspeed: {speed}")
         actor.position += movement_vector
         if perf_counter() - start_time >= time:
             return misbehave.State.SUCCESS
@@ -83,14 +80,14 @@ def wander(direction_attr, speed_attr, time_attr, start_attr):
     return wander_inner
 
 
-def check_if_player_is_close(storage_attr):
+def check_if_player_is_close(child, *, storage_attr):
 
     def check_if_player_is_close_inner(actor, context):
         player = next(context.event.scene.get(kind=players.Player))
         distance_to_player = (player.position - actor.position).length
         critical_distance = getattr(actor, storage_attr)
         if distance_to_player <= critical_distance:
-            return misbehave.State.SUCCESS
+            return child(actor, context)
         return misbehave.State.FAILED
 
     return check_if_player_is_close_inner
@@ -103,6 +100,16 @@ def set_player_position_on_actor(storage_attr):
         setattr(actor, storage_attr, player.position)
         return misbehave.State.SUCCESS
     return set_player_position_inner
+
+
+def set_attack_direction(target_attr, storage_attr):
+
+    def set_attack_direction_inner(actor, context):
+        target = getattr(actor, target_attr)
+        direction_vector = (target - actor.position).normalize()
+        setattr(actor, storage_attr, direction_vector)
+        return misbehave.State.SUCCESS
+    return set_attack_direction_inner
 
 def octogon(magnitude=0.5):
     return misbehave.selector.Sequence(
@@ -131,12 +138,29 @@ wander_tree = misbehave.selector.Sequence(
     wander("wander_direction", "wander_speed", "wander_time", "wander_start")
 )
 
+lunge_tree = misbehave.selector.Sequence(
+    check_if_player_is_close(
+        set_player_position_on_actor("attack_target"),
+        storage_attr="attack_range"
+    ),
+    set_attack_direction("attack_target", "attack_direction"),
+    misbehave.action.SetCurrentTime("wind_up"),
+    misbehave.action.Wait("wind_up", 0.1),
+    misbehave.action.SetCurrentTime("attack_start"),
+    wander(
+        "attack_direction",
+        "attack_speed",
+        "attack_time",
+        "attack_start"
+    )
+)
 zombie_base_tree = misbehave.selector.Priority(
+    lunge_tree,
     misbehave.selector.Concurrent(
         chase_tree,
-        misbehave.selector.Sequence(
-            check_if_player_is_close("awareness"),
+        check_if_player_is_close(
             set_player_position_on_actor("chase_target"),
+            storage_attr="awareness"
         ),
         num_fail=2
     ),

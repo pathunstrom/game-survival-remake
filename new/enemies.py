@@ -53,6 +53,9 @@ class WanderState:
 
 class Zombie(ppb.Sprite):
     speed_modifer = 0.7
+    attack_speed_modifier = 2
+    attack_time = .35
+    attack_range = 2.5
     awareness = 6
     image = ppb.Square(40, 200, 35)
     size = 1.2
@@ -66,6 +69,10 @@ class Zombie(ppb.Sprite):
     @property
     def speed(self):
         return self.speed_modifer * BASE_SPEED
+
+    @property
+    def attack_speed(self):
+        return self.speed_modifer * BASE_SPEED * self.attack_speed_modifier
 
     def on_update(self, event, signal):
         context = Context(event, signal)
@@ -101,6 +108,7 @@ class Skeleton(Zombie):
     image = ppb.Circle(240, 240, 255)
     size = 0.8
     points = 15
+    attack_range = 3
 
     @classmethod
     def spawn(cls, scene):
