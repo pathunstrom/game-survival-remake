@@ -167,8 +167,8 @@ class Sandbox(ppb.BaseScene):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.add(players.Player(position=ppb.Vector(20, 20)))
-        self.add(enemies.Zombie(position=ppb.Vector(0, 0)))
+        self.add(players.Player(position=ppb.Vector(10, 10)))
+        self.add(enemies.Zombie(position=ppb.Vector(0, 0), chase_target=ppb.Vector(10, 15)))
 
     def on_scene_started(self, event, signal):
         self.main_camera.width = 48

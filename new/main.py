@@ -3,7 +3,7 @@ from __future__ import annotations
 import ppb
 
 from shared import TITLE
-from scenes import Sandbox
+from scenes import TitleScreen
 from systems import ScoreSystem
 
-ppb.run(starting_scene=Sandbox, title=TITLE, systems=[ScoreSystem])
+ppb.run(starting_scene=TitleScreen, title=TITLE, systems=[ScoreSystem])

@@ -53,11 +53,11 @@ class WanderState:
 
 class Zombie(ppb.Sprite):
     speed_modifer = 0.7
-    awareness = 4
+    awareness = 6
     image = ppb.Square(40, 200, 35)
     size = 1.2
     points = 10
-    tree: Callable[[Zombie, Any], misbehave.State] = behaviors.base_tree
+    tree: Callable[[Zombie, Any], misbehave.State] = behaviors.zombie_base_tree
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -65,7 +65,7 @@ class Zombie(ppb.Sprite):
 
     @property
     def speed(self):
-        return self.speed_modifer * BASE_SPEED * self.state.speed_modifier
+        return self.speed_modifer * BASE_SPEED
 
     def on_update(self, event, signal):
         context = Context(event, signal)
@@ -73,7 +73,7 @@ class Zombie(ppb.Sprite):
 
     def on_shot_fired(self, event: game_events.ShotFired, signal):
         if (event.position - self.position).length <= self.awareness * event.noise:
-            self.state = AttackState()
+            self.chase_target = event.position
 
     @classmethod
     def spawn(cls, scene):

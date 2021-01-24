@@ -60,7 +60,7 @@ class Player(ppb.Sprite):
                         facing=new_facing
                     )
                 )
-            signal(events.ShotFired(self.position, 3))
+            signal(events.ShotFired(self.position, 5))
 
     def on_update(self, event: ppb.events.Update, signal):
         velocity = self.velocity
