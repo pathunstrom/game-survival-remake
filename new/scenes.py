@@ -1,8 +1,7 @@
 from __future__ import annotations
 import itertools
 import typing
-from random import uniform
-
+from random import uniform, shuffle, randint
 
 import ppb
 from ppb import keycodes
@@ -30,6 +29,7 @@ class LifeDisplay(ppb.Sprite):
     full_image = ppb.Image('full-heart.png')
     empty_image = ppb.Image('empty-heart.png')
     image = full_image
+    layer = 100
 
     def on_pre_render(self, event, signal):
         player = next(event.scene.get(kind=players.Player))
@@ -161,23 +161,29 @@ class Game(ppb.BaseScene):
         enemies.Zombie: [3.0, 0.0],
         enemies.Skeleton: [12.0, 6.0]
     }
+    level = 8
+    level_spawned = False
+    current_generator = None
 
-    def __init__(self, **props):
+    def __init__(self, player_life=10, **props):
         super().__init__(**props)
-        self.add(players.Player(position=ppb.Vector(5, -5)))
+        self.add(players.Player(player_life=10))
         self.add(Collider())
         self.add(systems.ScoreDisplay(position=ppb.Vector(8, 16)))
-        self.add(terrain.Wall(position=ppb.Vector(3, 3)))
-        self.add(terrain.Wall(position=ppb.Vector(3, -3)))
-        self.add(terrain.Wall(position=ppb.Vector(-3, 3)))
-        self.add(terrain.Wall(position=ppb.Vector(-3, -3)))
         for value in range(1, 11):
             self.add(LifeDisplay(health_value=value, position=(ppb.Vector(-8 + (-1.5 * value), 16))))
+
+        # Build Level
+        self.generators = [self.generate_walls, self.generate_hazards]
+        limits_value = 10 + (3 * self.level)
+        self.play_space_limits = (limits_value, limits_value, -limits_value, -limits_value)
 
     def on_scene_started(self, event, signal):
         self.main_camera.width = 48
 
     def on_update(self, event: ppb.events.Update, signal):
+        if not self.level_spawned:
+            return
         for kind, timer in self.spawn_timers.items():
             timer[1] -= event.time_delta
             if timer[1] <= 0:
@@ -185,8 +191,67 @@ class Game(ppb.BaseScene):
                 default = timer[0]
                 timer[1] = (default * 0.5) + (default * uniform(0, 1))
 
+    def on_pre_render(self, event, signal):
+        if not self.level_spawned:
+            if self.current_generator is None:
+                try:
+                    next_generator, *self.generators = self.generators
+                except ValueError:
+                    self.level_spawned = True
+                    return
+                else:
+                    self.current_generator = next_generator(0)
+            try:
+                items = next(self.current_generator)
+            except StopIteration:
+                self.current_generator = None
+            else:
+                for item in items:
+                    self.add(item)
+        self.main_camera.position = next(self.get(kind=players.Player)).position
+
     def on_game_over(self, event: events.GameOver, signal):
         signal(ppb.events.ReplaceScene(GameOverScene))
+
+    def generate_walls(self, level):
+        """
+        x x x x x x x
+        x . . . . . x
+        x . . . . . x
+        x . . . . . x
+        x . . . . . x
+        x . . . . . x
+        x x x x x x x
+        :param level:
+        :return:
+        """
+
+        all_walls = []
+        top = self.play_space_limits[0] + 1
+        left = self.play_space_limits[3] - 1
+        right = self.play_space_limits[1] + 1
+        bottom = self.play_space_limits[2] - 1
+        print(top, right, left, bottom)
+        all_walls.extend([ppb.Vector(x, top) for x in range(left, right + 1, 2)])  # Top walls
+        all_walls.extend([ppb.Vector(x, bottom) for x in range(left, right + 1, 2)])  # Bottom walls
+        all_walls.extend([ppb.Vector(left, x) for x in range(bottom, top, 2)])  # Left walls
+        all_walls.extend([ppb.Vector(right, x) for x in range(bottom, top, 2)])  # right walls
+        all_walls.extend([ppb.Vector(randint(left, right), randint(bottom, top)) for _ in range(self.level * 3)])
+
+        shuffle(all_walls)
+
+        while all_walls:
+            walls = all_walls[:3]
+            all_walls = all_walls[3:]
+            yield [terrain.Wall(position=wall) for wall in walls]
+
+    def generate_hazards(self, level):
+        number_of_hazards = self.level - 5
+        top, right, bottom, left = self.play_space_limits
+        if number_of_hazards > 0:
+            hazards = [terrain.Hazard(position=ppb.Vector(randint(left, right), randint(bottom, top))) for _ in range(number_of_hazards)]
+            while hazards:
+                yield [hazards.pop()]
 
 
 class Sandbox(ppb.BaseScene):

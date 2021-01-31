@@ -8,6 +8,7 @@ from shared import FONT
 
 class ScoreDisplay(ppb.RectangleSprite):
     score = 0
+    layer = 100
 
     @property
     def image(self):

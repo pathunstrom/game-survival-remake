@@ -93,10 +93,7 @@ class Zombie(ppb.Sprite):
 
     @classmethod
     def spawn(cls, scene):
-        left_limit = scene.main_camera.left
-        right_limit = scene.main_camera.right
-        top_limit = scene.main_camera.top
-        bottom_limit = scene.main_camera.bottom
+        top_limit, right_limit, bottom_limit, left_limit = scene.play_space_limits
         group_origin = ppb.Vector(
             uniform(left_limit, right_limit),
             uniform(top_limit, bottom_limit)
@@ -129,10 +126,7 @@ class Skeleton(Zombie):
 
     @classmethod
     def spawn(cls, scene):
-        left_limit = scene.main_camera.left
-        right_limit = scene.main_camera.right
-        top_limit = scene.main_camera.top
-        bottom_limit = scene.main_camera.bottom
+        top_limit, right_limit, bottom_limit, left_limit = scene.play_space_limits
         spawn_position = ppb.Vector(
             uniform(left_limit, right_limit),
             uniform(top_limit, bottom_limit)

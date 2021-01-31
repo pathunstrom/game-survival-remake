@@ -122,7 +122,7 @@ def set_attack_direction(target_attr, storage_attr):
 
 
 def kill_actor(actor, context):
-    context.scene.remove(actor)
+    context.event.scene.remove(actor)
     return misbehave.State.SUCCESS
 
 
