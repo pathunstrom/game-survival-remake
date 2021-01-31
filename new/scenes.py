@@ -1,5 +1,8 @@
 from __future__ import annotations
+import itertools
+import typing
 from random import uniform
+
 
 import ppb
 from ppb import keycodes
@@ -10,6 +13,7 @@ import enemies
 import events
 import players
 import systems
+import terrain
 
 
 def do_collide(first, second):
@@ -17,9 +21,9 @@ def do_collide(first, second):
     right = max(first.right, second.right)
     top = max(first.top, second.top)
     bottom = min(first.bottom, second.bottom)
-    return (right - left < first.size + second.size
-            and top - bottom < first.size + second.size)
-
+    rv = ((right - left < first.width + second.width)
+          and (top - bottom < first.height + second.height))
+    return rv
 
 class LifeDisplay(ppb.Sprite):
     health_value = 1
@@ -42,9 +46,22 @@ class Collider(gomlib.GameObject):
     def on_idle(self, event: ppb.events.Idle, signal):
         for_removal = set()
         player = next(event.scene.get(kind=players.Player))
+        zombies = list(event.scene.get(kind=enemies.Zombie))
+        bullets = list(event.scene.get(kind=players.Bullet))
+        wall_colliders = list(event.scene.get(kind=terrain.WallCollider))
+
         if self.primed:
-            for enemy in event.scene.get(kind=enemies.Zombie):
-                for bullet in event.scene.get(kind=players.Bullet):
+            wall: terrain.WallCollider
+            mobile: typing.Union[players.Player, enemies.Zombie, players.Bullet]
+            for wall, mobile in itertools.product(wall_colliders, itertools.chain([player], zombies, bullets)):
+                if do_collide(wall, mobile):
+                    if isinstance(mobile, players.Bullet):
+                        for_removal.add(mobile)
+                        continue
+                    mobile.position += wall.normal.scale_to(0.25)
+
+            for enemy in zombies:
+                for bullet in bullets:
                     if bullet in for_removal:
                         continue
                     if do_collide(enemy, bullet):
@@ -145,6 +162,10 @@ class Game(ppb.BaseScene):
         self.add(players.Player(position=ppb.Vector(5, -5)))
         self.add(Collider())
         self.add(systems.ScoreDisplay(position=ppb.Vector(8, 16)))
+        self.add(terrain.Wall(position=ppb.Vector(3, 3)))
+        self.add(terrain.Wall(position=ppb.Vector(3, -3)))
+        self.add(terrain.Wall(position=ppb.Vector(-3, 3)))
+        self.add(terrain.Wall(position=ppb.Vector(-3, -3)))
         for value in range(1, 11):
             self.add(LifeDisplay(health_value=value, position=(ppb.Vector(-8 + (-1.5 * value), 16))))
 
@@ -167,8 +188,9 @@ class Sandbox(ppb.BaseScene):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.add(Collider())
         self.add(players.Player(position=ppb.Vector(10, 10)))
-        self.add(enemies.Zombie(position=ppb.Vector(0, 0), chase_target=ppb.Vector(10, 15)))
+        self.add(terrain.Wall(position=ppb.Vector(0, 0)))
 
     def on_scene_started(self, event, signal):
         self.main_camera.width = 48
