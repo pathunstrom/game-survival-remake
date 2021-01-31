@@ -49,6 +49,7 @@ class Collider(gomlib.GameObject):
         zombies = list(event.scene.get(kind=enemies.Zombie))
         bullets = list(event.scene.get(kind=players.Bullet))
         wall_colliders = list(event.scene.get(kind=terrain.WallCollider))
+        hazards = list(event.scene.get(kind=terrain.Hazard))
 
         if self.primed:
             wall: terrain.WallCollider
@@ -59,6 +60,10 @@ class Collider(gomlib.GameObject):
                         for_removal.add(mobile)
                         continue
                     mobile.position += wall.normal.scale_to(0.25)
+
+            for hazard, mobile in itertools.product(hazards, itertools.chain([player], zombies)):
+                if do_collide(hazard, mobile):
+                    signal(events.MobileInFire(), targets=[mobile])
 
             for enemy in zombies:
                 for bullet in bullets:
@@ -190,7 +195,10 @@ class Sandbox(ppb.BaseScene):
         super().__init__(**kwargs)
         self.add(Collider())
         self.add(players.Player(position=ppb.Vector(10, 10)))
-        self.add(terrain.Wall(position=ppb.Vector(0, 0)))
+        self.add(terrain.Hazard(position=ppb.Vector(0, 0)))
+        self.add(enemies.Zombie(position=ppb.Vector(0, 0)))
+        for value in range(1, 11):
+            self.add(LifeDisplay(health_value=value, position=(ppb.Vector(-8 + (-1.5 * value), 16))))
 
     def on_scene_started(self, event, signal):
         self.main_camera.width = 48

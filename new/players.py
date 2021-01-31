@@ -5,7 +5,9 @@ import ppb
 from ppb import buttons, keycodes
 
 import events
+import utils
 from shared import BASE_SPEED
+
 
 class Bullet(ppb.Sprite):
     image = ppb.Triangle(200, 200, 75)
@@ -23,6 +25,8 @@ class Player(ppb.Sprite):
     velocity = ppb.Vector(0, 0)  # Badly named
     speed = BASE_SPEED
     life = 10
+    heat = 0
+    max_heat = 10
 
     def on_key_pressed(self, event: ppb.events.KeyPressed, signal):
         if event.key is keycodes.W:
@@ -67,8 +71,26 @@ class Player(ppb.Sprite):
         if velocity:
             velocity = velocity.normalize()
         self.position += velocity * event.time_delta * self.speed
+        if self.heat >= self.max_heat:
+            self.handle_heat(signal)
+        self.reduce_heat()
 
     def on_player_hurt(self, event: events.PlayerHurt, signal):
+        self.take_damage(signal)
+
+    @utils.debounce(0.1)
+    def on_mobile_in_fire(self, event, signal):
+        self.heat += 1
+
+    def take_damage(self, signal):
         self.life -= 1
         if self.life <= 0:
             signal(events.GameOver())
+
+    @utils.debounce(0.5)
+    def handle_heat(self, signal):
+        self.take_damage(signal)
+
+    @utils.debounce(0.40)
+    def reduce_heat(self):
+        self.heat = max(0, self.heat - 1)

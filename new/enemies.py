@@ -6,11 +6,11 @@ from typing import Any, Callable
 import misbehave
 import ppb
 
-from shared import BASE_SPEED
+from shared import BASE_SPEED, FIRE_DEBOUNCE
 import players as player_module
 import events as game_events
 import behaviors
-
+import utils
 
 @dataclass
 class Context:
@@ -61,6 +61,10 @@ class Zombie(ppb.Sprite):
     size = 1.2
     points = 10
     tree: Callable[[Zombie, Any], misbehave.State] = behaviors.zombie_base_tree
+    heat: int = 0
+    max_heat: int = 1
+    flee_speed_modifier = 3
+    flee_time = 1
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -74,9 +78,14 @@ class Zombie(ppb.Sprite):
     def attack_speed(self):
         return self.speed_modifer * BASE_SPEED * self.attack_speed_modifier
 
+    @property
+    def flee_speed(self):
+        return self.speed * self.flee_speed_modifier
+
     def on_update(self, event, signal):
         context = Context(event, signal)
         self.tree(self, context)
+        self.reduce_heat()
 
     def on_shot_fired(self, event: game_events.ShotFired, signal):
         if (event.position - self.position).length <= self.awareness * event.noise:
@@ -100,6 +109,14 @@ class Zombie(ppb.Sprite):
             if (player.position - group_origin + offset_vector).length <= cls.awareness:
                 continue
             scene.add(cls(position=group_origin + offset_vector))
+
+    @utils.debounce(FIRE_DEBOUNCE)
+    def on_mobile_in_fire(self, event, signal):
+        self.heat += 1
+
+    @utils.debounce(0.2)
+    def reduce_heat(self):
+        self.heat = max(0, self.heat - 1)
 
 
 class Skeleton(Zombie):

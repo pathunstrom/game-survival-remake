@@ -27,3 +27,8 @@ class ShotFired:
     position: ppb.Vector
     noise: int
     scene: scenes.Game = None
+
+
+@dataclass
+class MobileInFire:
+    scene: scenes.Game = None

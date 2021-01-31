@@ -48,3 +48,10 @@ class Wall(Terrain):
                 setattr(collider, attr, value)
                 event.scene.add(collider)
             self.colliders_launched = True
+
+
+class Hazard(Terrain):  # Is Fire
+    width = 2
+    height = 2
+    image = ppb.Square(203, 46, 11)
+    layer = -10
