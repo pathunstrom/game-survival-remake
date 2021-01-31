@@ -10,6 +10,15 @@ import enemies
 import players
 
 
+def compare_heat(child):
+
+    def compare_heat_inner(actor: enemies.Zombie, context: Any) -> misbehave.State:
+        if actor.heat >= actor.max_heat:
+            return child(actor, context)
+        return misbehave.State.FAILED
+    return compare_heat_inner
+
+
 def move_in_fixed_direction(direction: ppb.Vector, time: Union[int, float] = 1) -> Callable[[enemies.Zombie, Any], misbehave.State]:
 
     def move_in_fixed_direction_inner(actor: enemies.Zombie, context: Any) -> misbehave.State:  # Context event, signal ???
@@ -111,6 +120,12 @@ def set_attack_direction(target_attr, storage_attr):
         return misbehave.State.SUCCESS
     return set_attack_direction_inner
 
+
+def kill_actor(actor, context):
+    context.event.scene.remove(actor)
+    return misbehave.State.SUCCESS
+
+
 def octogon(magnitude=0.5):
     return misbehave.selector.Sequence(
         move_in_fixed_direction(ppb.directions.Up, magnitude),
@@ -154,8 +169,27 @@ lunge_tree = misbehave.selector.Sequence(
         "attack_start"
     )
 )
+
+on_fire_tree = compare_heat(
+    misbehave.selector.Sequence(
+        pick_random_direction("flee_direction"),
+        lambda x, y: print("Flee target chosen."),
+        misbehave.action.SetCurrentTime("flee_start"),
+        wander(
+            "flee_direction",
+            "flee_speed",
+            "flee_time",
+            "flee_start"
+        ),
+        misbehave.action.SetCurrentTime('death_wait'),
+        misbehave.action.Wait('death_wait', 0.25),
+        kill_actor
+    )
+)
+
 zombie_base_tree = misbehave.selector.Priority(
     lunge_tree,
+    on_fire_tree,
     misbehave.selector.Concurrent(
         chase_tree,
         check_if_player_is_close(

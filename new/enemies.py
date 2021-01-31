@@ -6,11 +6,11 @@ from typing import Any, Callable
 import misbehave
 import ppb
 
-from shared import BASE_SPEED
+from shared import BASE_SPEED, FIRE_DEBOUNCE
 import players as player_module
 import events as game_events
 import behaviors
-
+import utils
 
 @dataclass
 class Context:
@@ -61,6 +61,10 @@ class Zombie(ppb.Sprite):
     size = 1.2
     points = 10
     tree: Callable[[Zombie, Any], misbehave.State] = behaviors.zombie_base_tree
+    heat: int = 0
+    max_heat: int = 1
+    flee_speed_modifier = 3
+    flee_time = 1
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -74,9 +78,14 @@ class Zombie(ppb.Sprite):
     def attack_speed(self):
         return self.speed_modifer * BASE_SPEED * self.attack_speed_modifier
 
+    @property
+    def flee_speed(self):
+        return self.speed * self.flee_speed_modifier
+
     def on_update(self, event, signal):
         context = Context(event, signal)
         self.tree(self, context)
+        self.reduce_heat()
 
     def on_shot_fired(self, event: game_events.ShotFired, signal):
         if (event.position - self.position).length <= self.awareness * event.noise:
@@ -84,10 +93,7 @@ class Zombie(ppb.Sprite):
 
     @classmethod
     def spawn(cls, scene):
-        left_limit = scene.main_camera.left
-        right_limit = scene.main_camera.right
-        top_limit = scene.main_camera.top
-        bottom_limit = scene.main_camera.bottom
+        top_limit, right_limit, bottom_limit, left_limit = scene.play_space_limits
         group_origin = ppb.Vector(
             uniform(left_limit, right_limit),
             uniform(top_limit, bottom_limit)
@@ -101,6 +107,14 @@ class Zombie(ppb.Sprite):
                 continue
             scene.add(cls(position=group_origin + offset_vector))
 
+    @utils.debounce(FIRE_DEBOUNCE)
+    def on_mobile_in_fire(self, event, signal):
+        self.heat += 1
+
+    @utils.debounce(0.2)
+    def reduce_heat(self):
+        self.heat = max(0, self.heat - 1)
+
 
 class Skeleton(Zombie):
     speed_modifer = 1.2
@@ -112,10 +126,7 @@ class Skeleton(Zombie):
 
     @classmethod
     def spawn(cls, scene):
-        left_limit = scene.main_camera.left
-        right_limit = scene.main_camera.right
-        top_limit = scene.main_camera.top
-        bottom_limit = scene.main_camera.bottom
+        top_limit, right_limit, bottom_limit, left_limit = scene.play_space_limits
         spawn_position = ppb.Vector(
             uniform(left_limit, right_limit),
             uniform(top_limit, bottom_limit)
