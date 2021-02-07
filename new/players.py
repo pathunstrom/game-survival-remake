@@ -2,7 +2,7 @@ from __future__ import annotations
 from random import randint, uniform
 
 import ppb
-from ppb import buttons, keycodes
+from ppb import buttons
 
 import events
 import utils
@@ -22,31 +22,10 @@ class Bullet(ppb.Sprite):
 
 class Player(ppb.Sprite):
     image = ppb.Square(200, 25, 25)
-    velocity = ppb.Vector(0, 0)  # Badly named
     speed = BASE_SPEED
     life = 10
     heat = 0
     max_heat = 10
-
-    def on_key_pressed(self, event: ppb.events.KeyPressed, signal):
-        if event.key is keycodes.W:
-            self.velocity += ppb.directions.Up
-        elif event.key is keycodes.A:
-            self.velocity += ppb.directions.Left
-        elif event.key is keycodes.S:
-            self.velocity += ppb.directions.Down
-        elif event.key is keycodes.D:
-            self.velocity += ppb.directions.Right
-
-    def on_key_released(self, event: ppb.events.KeyReleased, signal):
-        if event.key is keycodes.W:
-            self.velocity -= ppb.directions.Up
-        elif event.key is keycodes.A:
-            self.velocity -= ppb.directions.Left
-        elif event.key is keycodes.S:
-            self.velocity -= ppb.directions.Down
-        elif event.key is keycodes.D:
-            self.velocity -= ppb.directions.Right
 
     def on_button_released(self, event: ppb.events.ButtonReleased, signal):
         if event.button is ppb.buttons.Primary:
@@ -67,7 +46,7 @@ class Player(ppb.Sprite):
             signal(events.ShotFired(self.position, 5))
 
     def on_update(self, event: ppb.events.Update, signal):
-        velocity = self.velocity
+        velocity = event.movement
         if velocity:
             velocity = velocity.normalize()
         self.position += velocity * event.time_delta * self.speed
