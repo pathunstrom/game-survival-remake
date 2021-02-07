@@ -105,7 +105,7 @@ class Zombie(ppb.Sprite):
             offset_vector = ppb.Vector(uniform(-2.5, 2.5), uniform(-2.5, 2.5))
             spawn_position = group_origin + offset_vector
             if ((player.position - spawn_position).length <= cls.awareness
-                    or (left_limit > spawn_position.x > right_limit and bottom_limit > spawn_position.y > top_limit)):
+                    or cls.check_outside_limit(spawn_position, left_limit, right_limit, bottom_limit, top_limit)):
                 continue
             scene.add(cls(position=group_origin + offset_vector))
             scene.spawned += 1
@@ -117,6 +117,12 @@ class Zombie(ppb.Sprite):
     @utils.debounce(0.2)
     def reduce_heat(self):
         self.heat = max(0, self.heat - 1)
+
+    @staticmethod
+    def check_outside_limit(position, left, right, bottom, top) -> bool:
+        x_result = left >= position.x or position.x >= right
+        y_result = (bottom >= position.y or position.y >= top)
+        return x_result or y_result
 
 
 class Skeleton(Zombie):

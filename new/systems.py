@@ -43,10 +43,7 @@ class ScoreSystem(systemslib.System):
 
 
 class Controller(systemslib.System):
-    """"""
-    # 1. A controls object: store state of significant keys (WASD)
-    # 2. Respond to keyboard and mouse events.
-    # 3. Extensions - put control object on events (update event)
+
     move_vector = ppb.Vector(0, 0)
 
     def __init__(self, engine: ppb.engine.GameEngine, **kwargs):

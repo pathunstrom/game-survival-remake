@@ -158,10 +158,7 @@ class GameOverScene(ppb.BaseScene):
 
 class Game(ppb.BaseScene):
     background_color = (0, 0, 0)
-    spawn_timers = {
-        enemies.Zombie: [3.0, 0.0],
-        enemies.Skeleton: [12.0, 6.0]
-    }
+
     level = 1
     level_spawned = False
     current_generator = None
@@ -175,7 +172,10 @@ class Game(ppb.BaseScene):
         self.add(systems.ScoreDisplay(position=ppb.Vector(8, 16)))
         for value in range(1, 11):
             self.add(LifeDisplay(health_value=value, position=(ppb.Vector(-8 + (-1.5 * value), 16))))
-
+        self.spawn_timers = {
+            enemies.Zombie: [3.0, 0.0],
+            enemies.Skeleton: [12.0, 6.0]
+        }
         # Build Level
         self.generators = [self.generate_walls, self.generate_hazards]
         limits_value = 10 + (3 * self.level)
