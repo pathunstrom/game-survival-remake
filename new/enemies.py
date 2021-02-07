@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from random import randint, uniform
+from time import perf_counter
 from typing import Any, Callable
 
 import misbehave
@@ -12,43 +13,16 @@ import events as game_events
 import behaviors
 import utils
 
+
 @dataclass
 class Context:
     event: Any
     signal: Any
 
 
-class AttackState:
-    speed_modifier = 1
-
-    def update(self, parent, event: ppb.events.Update, signal):
-        player = next(event.scene.get(kind=player_module.Player))
-        direction = (player.position - parent.position).normalize()
-        delta = direction * event.time_delta * parent.speed
-        parent.position += delta
-
-
-class WanderState:
-    wander_intensity = 16
-    speed_modifier = 0.5
-
-    def __init__(self):
-        self.wander_vector = ppb.Vector(uniform(-1, 1), uniform(-1, 1)).normalize()
-        self.velocity = ppb.Vector(0, 0)
-
-    def update(self, parent, event, signal):
-        # Check for state change
-        player = next(event.scene.get(kind=player_module.Player))
-        distance_to_player = (player.position - parent.position).length
-        if distance_to_player <= parent.awareness:
-            parent.state = AttackState()
-
-        # Wander Code
-        self.wander_vector = self.wander_vector.rotate(uniform(-self.wander_intensity, self.wander_intensity))
-        velocity = self.velocity.scale_to(2) if self.velocity else self.velocity
-        self.velocity += velocity + self.wander_vector.scale_to(1)
-        self.velocity = self.velocity.truncate(parent.speed)
-        parent.position += self.velocity * event.time_delta
+@dataclass
+class Cry:
+    source: Zombie
 
 
 class Zombie(ppb.Sprite):
@@ -65,10 +39,11 @@ class Zombie(ppb.Sprite):
     max_heat: int = 1
     flee_speed_modifier = 3
     flee_time = 1
+    chase_target = None
+    last_cry = 0
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.state = WanderState()
 
     @property
     def speed(self):
@@ -86,6 +61,7 @@ class Zombie(ppb.Sprite):
         context = Context(event, signal)
         self.tree(self, context)
         self.reduce_heat()
+        self.cry(signal)
 
     def on_shot_fired(self, event: game_events.ShotFired, signal):
         if (event.position - self.position).length <= self.awareness * event.noise:
@@ -117,6 +93,18 @@ class Zombie(ppb.Sprite):
     @utils.debounce(0.2)
     def reduce_heat(self):
         self.heat = max(0, self.heat - 1)
+
+    def cry(self, signal):
+        now = perf_counter()
+        if now - self.last_cry <= 0.25:
+            return
+        if self.chase_target:
+            signal(Cry(self))
+            self.last_cry = now
+
+    def on_cry(self, event, signal):
+        if not self.chase_target and (self.position - event.source.position).length >= self.awareness:
+            self.chase_target = event.source.chase_target
 
     @staticmethod
     def check_outside_limit(position, left, right, bottom, top) -> bool:

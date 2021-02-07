@@ -7,6 +7,7 @@ from ppb import keycodes, systemslib
 import events
 from shared import FONT
 
+
 class ScoreDisplay(ppb.RectangleSprite):
     score = 0
     layer = 100

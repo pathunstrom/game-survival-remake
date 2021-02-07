@@ -6,6 +6,7 @@ import ppb
 import enemies
 import scenes
 
+
 @dataclass
 class EnemyKilled:
     enemy: enemies.Zombie
