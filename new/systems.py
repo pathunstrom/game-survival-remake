@@ -1,10 +1,12 @@
 from __future__ import annotations
+from dataclasses import dataclass
 
 import ppb
-from ppb import systemslib
+from ppb import keycodes, systemslib
 
 import events
 from shared import FONT
+
 
 class ScoreDisplay(ppb.RectangleSprite):
     score = 0
@@ -39,3 +41,35 @@ class ScoreSystem(systemslib.System):
     def on_pre_render(self, event, signal):
         for score_display in event.scene.get(kind=ScoreDisplay):
             score_display.score = self.current_score
+
+
+class Controller(systemslib.System):
+
+    move_vector = ppb.Vector(0, 0)
+
+    def __init__(self, engine: ppb.engine.GameEngine, **kwargs):
+        super().__init__(engine=engine, **kwargs)
+        engine.register(ppb.events.Update, self.add_controls)
+
+    def add_controls(self, event):
+        event.movement = self.move_vector
+
+    def on_key_pressed(self, event: ppb.events.KeyPressed, signal):
+        if event.key is keycodes.W:
+            self.move_vector += ppb.directions.Up
+        elif event.key is keycodes.A:
+            self.move_vector += ppb.directions.Left
+        elif event.key is keycodes.S:
+            self.move_vector += ppb.directions.Down
+        elif event.key is keycodes.D:
+            self.move_vector += ppb.directions.Right
+
+    def on_key_released(self, event: ppb.events.KeyReleased, signal):
+        if event.key is keycodes.W:
+            self.move_vector -= ppb.directions.Up
+        elif event.key is keycodes.A:
+            self.move_vector -= ppb.directions.Left
+        elif event.key is keycodes.S:
+            self.move_vector -= ppb.directions.Down
+        elif event.key is keycodes.D:
+            self.move_vector -= ppb.directions.Right
