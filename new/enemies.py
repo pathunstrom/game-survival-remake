@@ -103,9 +103,12 @@ class Zombie(ppb.Sprite):
             return
         for _ in range(randint(1, 2) + randint(0, 2) + randint(0, 1)):
             offset_vector = ppb.Vector(uniform(-2.5, 2.5), uniform(-2.5, 2.5))
-            if (player.position - group_origin + offset_vector).length <= cls.awareness:
+            spawn_position = group_origin + offset_vector
+            if ((player.position - spawn_position).length <= cls.awareness
+                    or (left_limit > spawn_position.x > right_limit and bottom_limit > spawn_position.y > top_limit)):
                 continue
             scene.add(cls(position=group_origin + offset_vector))
+            scene.spawned += 1
 
     @utils.debounce(FIRE_DEBOUNCE)
     def on_mobile_in_fire(self, event, signal):
@@ -135,3 +138,4 @@ class Skeleton(Zombie):
         if (player.position - spawn_position).length <= cls.awareness:
             return
         scene.add(cls(position=spawn_position))
+        scene.spawned += 1

@@ -24,6 +24,7 @@ def do_collide(first, second):
           and (top - bottom < first.height + second.height))
     return rv
 
+
 class LifeDisplay(ppb.Sprite):
     health_value = 1
     full_image = ppb.Image('full-heart.png')
@@ -161,9 +162,11 @@ class Game(ppb.BaseScene):
         enemies.Zombie: [3.0, 0.0],
         enemies.Skeleton: [12.0, 6.0]
     }
-    level = 8
+    level = 1
     level_spawned = False
     current_generator = None
+    spawn_limit = 25
+    spawned = 0
 
     def __init__(self, player_life=10, **props):
         super().__init__(**props)
@@ -178,12 +181,21 @@ class Game(ppb.BaseScene):
         limits_value = 10 + (3 * self.level)
         self.play_space_limits = (limits_value, limits_value, -limits_value, -limits_value)
 
+        # Spawn setup
+        self.spawn_limit = 20 + (5 * self.level)
+
     def on_scene_started(self, event, signal):
         self.main_camera.width = 48
 
     def on_update(self, event: ppb.events.Update, signal):
         if not self.level_spawned:
             return
+
+        if self.spawned >= self.spawn_limit:
+            if not list(self.get(kind=enemies.Zombie)):
+                signal(ppb.events.ReplaceScene(Game, kwargs={"level": self.level + 1}))
+            return
+
         for kind, timer in self.spawn_timers.items():
             timer[1] -= event.time_delta
             if timer[1] <= 0:
