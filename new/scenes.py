@@ -13,7 +13,7 @@ import events
 import players
 import systems
 import terrain
-
+import config
 
 def do_collide(first, second):
     left = min(first.left, second.left)
@@ -63,7 +63,7 @@ class Collider(gomlib.GameObject):
                     if isinstance(mobile, players.Bullet):
                         for_removal.add(mobile)
                         continue
-                    mobile.position += wall.normal.scale_to(0.25)
+                    mobile.position += wall.normal.scale_to(config.Collider.wall_push)
 
             for hazard, mobile in itertools.product(hazards, itertools.chain([player], zombies)):
                 if do_collide(hazard, mobile):
@@ -165,9 +165,9 @@ class Game(ppb.BaseScene):
     level = 1
     level_spawned = False
     current_generator = None
-    spawn_limit = 25
+    spawn_limit = None
     spawned = 0
-    camera_new_blend = .05
+    camera_new_blend = config.Game.main_camera_position_blend
 
     def __init__(self, player_life=10, **props):
         super().__init__(**props)
@@ -177,8 +177,8 @@ class Game(ppb.BaseScene):
         for value in range(1, 11):
             self.add(LifeDisplay(health_value=value, offset=(ppb.Vector(-8 + (-1.5 * value), 16))))
         self.spawn_timers = {
-            enemies.Zombie: [3.0, 0.0],  # TODO: Magic Number
-            enemies.Skeleton: [12.0, 6.0]  # TODO: Magic Number
+            enemies.Zombie: [config.Game.zombie_spawn_base, config.Game.zombie_spawn_initial],
+            enemies.Skeleton: [config.Game.skeleton_spawn_base, config.Game.skeleton_spawn_initial]
         }
         # Build Level
         self.generators = [self.generate_walls, self.generate_hazards]
@@ -186,10 +186,10 @@ class Game(ppb.BaseScene):
         self.play_space_limits = (limits_value, limits_value, -limits_value, -limits_value)
 
         # Spawn setup
-        self.spawn_limit = 20 + (5 * self.level)
+        self.spawn_limit = config.Game.spawn_limit_base + (config.Game.spawn_limit_scalar * self.level)
 
     def on_scene_started(self, event, signal):
-        self.main_camera.width = 48
+        self.main_camera.width = config.Game.main_camera_width
 
     def on_update(self, event: ppb.events.Update, signal):
         if not self.level_spawned:
@@ -262,13 +262,14 @@ class Game(ppb.BaseScene):
 
         shuffle(all_walls)
 
+        count = config.Game.wall_spawn_step_count
         while all_walls:
-            walls = all_walls[:3]
-            all_walls = all_walls[3:]
+            walls = all_walls[:count]
+            all_walls = all_walls[count:]
             yield [terrain.Wall(position=wall) for wall in walls]
 
     def generate_hazards(self, level):
-        number_of_hazards = self.level - 5
+        number_of_hazards = self.level - config.Game.hazard_min_level
         top, right, bottom, left = self.play_space_limits
         if number_of_hazards > 0:
             hazards = [terrain.Hazard(position=ppb.Vector(randint(left, right), randint(bottom, top))) for _ in range(number_of_hazards)]

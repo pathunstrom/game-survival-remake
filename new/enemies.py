@@ -8,7 +8,7 @@ from typing import Any, Callable
 import misbehave
 import ppb
 
-from shared import BASE_SPEED, FIRE_DEBOUNCE
+import config
 import players as player_module
 import events as game_events
 import behaviors
@@ -42,40 +42,39 @@ class CryDebug(ppb.Sprite):
 
 
 class Zombie(ppb.Sprite):
-    speed_modifer = 0.7
-    attack_speed_modifier = 2
-    attack_time = .35
-    attack_range = 2.5
-    awareness = 6
+    speed_modifer = config.Zombie.speed_modifier
+    attack_speed_modifier = config.Zombie.attack_speed_modifier
+    attack_time = config.Zombie.attack_time
+    attack_range = config.Zombie.attack_range
+    awareness = config.Zombie.awareness
     image = ppb.Square(40, 200, 35)
-    size = 1.2
-    points = 10
+    size = config.Zombie.size
+    points = config.Zombie.point_value
     tree: Callable[[Zombie, Any], misbehave.State] = behaviors.zombie_base_tree
     heat: int = 0
-    max_heat: int = 1
-    flee_speed_modifier = 3
-    flee_time = 1
+    max_heat: int = config.Zombie.max_heat
+    flee_speed_modifier = config.Zombie.flee_speed
+    flee_time = config.Zombie.flee_time
     chase_target = None
-    last_cry = 0
 
-    spawn_multiplier = 3
-    min_first_cut = 0.5
-    max_first_cut = 0.25
-    min_second_cut = 0.25
-    max_second_cut = 0.5
-    min_third_cut = 0.25
-    max_third_cut = 0.25
+    spawn_multiplier = config.Zombie.spawn_multiplier
+    min_first_cut = config.Zombie.spawn_first_min
+    max_first_cut = config.Zombie.spawn_first_max
+    min_second_cut = config.Zombie.spawn_second_min
+    max_second_cut = config.Zombie.spawn_second_max
+    min_third_cut = config.Zombie.spawn_third_min
+    max_third_cut = config.Zombie.spawn_third_max
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     @property
     def speed(self):
-        return self.speed_modifer * BASE_SPEED
+        return self.speed_modifer * config.Root.base_speed
 
     @property
     def attack_speed(self):
-        return self.speed_modifer * BASE_SPEED * self.attack_speed_modifier
+        return self.speed * self.attack_speed_modifier
 
     @property
     def flee_speed(self):
@@ -115,8 +114,9 @@ class Zombie(ppb.Sprite):
         third_min = math.floor(level * cls.min_second_cut)
         third_max = max(third_min, math.floor(spawn_max * cls.max_third_cut))
 
+        offset_limit = config.Zombie.spawn_offset_base
         for _ in range(randint(first_min, first_max) + randint(second_min, second_max) + randint(third_min, third_max)):
-            offset_vector = ppb.Vector(uniform(-2.5, 2.5), uniform(-2.5, 2.5))
+            offset_vector = ppb.Vector(uniform(-offset_limit, offset_limit), uniform(-offset_limit, offset_limit))
             spawn_position = group_origin + offset_vector
             if ((player.position - spawn_position).length <= cls.awareness
                     or cls.check_outside_limit(spawn_position, left_limit, right_limit, bottom_limit, top_limit)):
@@ -124,11 +124,11 @@ class Zombie(ppb.Sprite):
             scene.add(cls(position=group_origin + offset_vector))
             scene.spawned += 1
 
-    @utils.debounce(FIRE_DEBOUNCE)
+    @utils.debounce(config.Fire.debounce)
     def on_mobile_in_fire(self, event, signal):
         self.heat += 1
 
-    @utils.debounce(0.2)
+    @utils.debounce(config.Zombie.reduce_heat_debounce)
     def reduce_heat(self):
         self.heat = max(0, self.heat - 1)
 
@@ -144,12 +144,12 @@ class Zombie(ppb.Sprite):
 
 
 class Skeleton(Zombie):
-    speed_modifer = 1.2
-    awareness = 8
+    speed_modifer = config.Skeleton.speed_modifer
+    awareness = config.Skeleton.awareness
     image = ppb.Circle(240, 240, 255)
-    size = 0.8
-    points = 15
-    attack_range = 3
+    size = config.Skeleton.size
+    points = config.Skeleton.point_value
+    attack_range = config.Skeleton.attack_range
 
     @classmethod
     def spawn(cls, scene):
