@@ -171,7 +171,7 @@ class Game(ppb.BaseScene):
 
     def __init__(self, player_life=10, **props):
         super().__init__(**props)
-        self.add(players.Player(player_life=10))
+        self.add(players.Player(life=player_life))
         self.add(Collider())
         self.add(systems.ScoreDisplay(offset=ppb.Vector(12, 16)))
         for value in range(1, 11):
@@ -198,7 +198,8 @@ class Game(ppb.BaseScene):
         no_enemies = not list(self.get(kind=enemies.Zombie))
         if self.spawned >= self.spawn_limit:
             if no_enemies:
-                signal(ppb.events.ReplaceScene(Game, kwargs={"level": self.level + 1}))
+                player = next(self.get(kind=players.Player))
+                signal(ppb.events.ReplaceScene(Game, kwargs={"level": self.level + 1, "player_life": player.life}))
             return
 
         for kind, timer in self.spawn_timers.items():
