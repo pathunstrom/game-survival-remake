@@ -26,6 +26,21 @@ class Cry:
     source: Zombie
 
 
+class CryDebug(ppb.Sprite):
+    layer = -1000
+    size = 12
+    life_time = 2
+    image = ppb.Circle(200, 200, 100)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.start = perf_counter()
+
+    def on_pre_render(self, e: ppb.events.PreRender, signal):
+        if perf_counter() > self.start + self.life_time:
+            e.scene.remove(self)
+
+
 class Zombie(ppb.Sprite):
     speed_modifer = 0.7
     attack_speed_modifier = 2
@@ -70,7 +85,6 @@ class Zombie(ppb.Sprite):
         context = Context(event, signal)
         self.tree(self, context)
         self.reduce_heat()
-        self.cry(signal)
 
     def on_shot_fired(self, event: game_events.ShotFired, signal):
         if (event.position - self.position).length <= self.awareness * event.noise:
@@ -117,14 +131,6 @@ class Zombie(ppb.Sprite):
     @utils.debounce(0.2)
     def reduce_heat(self):
         self.heat = max(0, self.heat - 1)
-
-    def cry(self, signal):
-        now = perf_counter()
-        if now - self.last_cry <= 0.25:
-            return
-        if self.chase_target:
-            signal(Cry(self))
-            self.last_cry = now
 
     def on_cry(self, event, signal):
         if not self.chase_target and (self.position - event.source.position).length >= self.awareness:
