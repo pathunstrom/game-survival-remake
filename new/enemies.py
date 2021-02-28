@@ -1,4 +1,5 @@
 from __future__ import annotations
+import math
 from dataclasses import dataclass
 from random import randint, uniform
 from time import perf_counter
@@ -7,7 +8,7 @@ from typing import Any, Callable
 import misbehave
 import ppb
 
-from shared import BASE_SPEED, FIRE_DEBOUNCE
+import config
 import players as player_module
 import events as game_events
 import behaviors
@@ -25,33 +26,55 @@ class Cry:
     source: Zombie
 
 
+class CryDebug(ppb.Sprite):
+    layer = -1000
+    size = 12
+    life_time = 2
+    image = ppb.Circle(200, 200, 100)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.start = perf_counter()
+
+    def on_pre_render(self, e: ppb.events.PreRender, signal):
+        if perf_counter() > self.start + self.life_time:
+            e.scene.remove(self)
+
+
 class Zombie(ppb.Sprite):
-    speed_modifer = 0.7
-    attack_speed_modifier = 2
-    attack_time = .35
-    attack_range = 2.5
-    awareness = 6
+    speed_modifer = config.Zombie.speed_modifier
+    attack_speed_modifier = config.Zombie.attack_speed_modifier
+    attack_time = config.Zombie.attack_time
+    attack_range = config.Zombie.attack_range
+    awareness = config.Zombie.awareness
     image = ppb.Square(40, 200, 35)
-    size = 1.2
-    points = 10
+    size = config.Zombie.size
+    points = config.Zombie.point_value
     tree: Callable[[Zombie, Any], misbehave.State] = behaviors.zombie_base_tree
     heat: int = 0
-    max_heat: int = 1
-    flee_speed_modifier = 3
-    flee_time = 1
+    max_heat: int = config.Zombie.max_heat
+    flee_speed_modifier = config.Zombie.flee_speed
+    flee_time = config.Zombie.flee_time
     chase_target = None
-    last_cry = 0
+
+    spawn_multiplier = config.Zombie.spawn_multiplier
+    min_first_cut = config.Zombie.spawn_first_min
+    max_first_cut = config.Zombie.spawn_first_max
+    min_second_cut = config.Zombie.spawn_second_min
+    max_second_cut = config.Zombie.spawn_second_max
+    min_third_cut = config.Zombie.spawn_third_min
+    max_third_cut = config.Zombie.spawn_third_max
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     @property
     def speed(self):
-        return self.speed_modifer * BASE_SPEED
+        return self.speed_modifer * config.Root.base_speed
 
     @property
     def attack_speed(self):
-        return self.speed_modifer * BASE_SPEED * self.attack_speed_modifier
+        return self.speed * self.attack_speed_modifier
 
     @property
     def flee_speed(self):
@@ -61,7 +84,6 @@ class Zombie(ppb.Sprite):
         context = Context(event, signal)
         self.tree(self, context)
         self.reduce_heat()
-        self.cry(signal)
 
     def on_shot_fired(self, event: game_events.ShotFired, signal):
         if (event.position - self.position).length <= self.awareness * event.noise:
@@ -77,8 +99,24 @@ class Zombie(ppb.Sprite):
         player = next(scene.get(kind=player_module.Player))
         if (player.position - group_origin).length <= cls.awareness + 2.5:
             return
-        for _ in range(randint(1, 2) + randint(0, 2) + randint(0, 1)):
-            offset_vector = ppb.Vector(uniform(-2.5, 2.5), uniform(-2.5, 2.5))
+        # Minimum  == level,  1/2 round up to fist, then 1/4 and 1/4 round down
+        # Maximum == level * 3, 1/4 1/2 1/4
+        # Level 1: minimum == 1 randint min 1, randint min 0, randint min 0
+        # Level 1: maximum == 4 randint max 1, ranint max 2, randint max 1
+        # 1 and 4 randint(1, 2), randint(0, 2), randint(0, 1)
+        level = scene.level
+        spawn_max = level * cls.spawn_multiplier
+
+        first_min = math.ceil(level * cls.min_first_cut)
+        first_max = max(first_min, math.floor(spawn_max * cls.max_first_cut))
+        second_min = math.floor(level * cls.min_second_cut)
+        second_max = max(second_min, math.ceil(spawn_max * cls.max_second_cut))
+        third_min = math.floor(level * cls.min_second_cut)
+        third_max = max(third_min, math.floor(spawn_max * cls.max_third_cut))
+
+        offset_limit = config.Zombie.spawn_offset_base
+        for _ in range(randint(first_min, first_max) + randint(second_min, second_max) + randint(third_min, third_max)):
+            offset_vector = ppb.Vector(uniform(-offset_limit, offset_limit), uniform(-offset_limit, offset_limit))
             spawn_position = group_origin + offset_vector
             if ((player.position - spawn_position).length <= cls.awareness
                     or cls.check_outside_limit(spawn_position, left_limit, right_limit, bottom_limit, top_limit)):
@@ -86,21 +124,13 @@ class Zombie(ppb.Sprite):
             scene.add(cls(position=group_origin + offset_vector))
             scene.spawned += 1
 
-    @utils.debounce(FIRE_DEBOUNCE)
+    @utils.debounce(config.Fire.debounce)
     def on_mobile_in_fire(self, event, signal):
         self.heat += 1
 
-    @utils.debounce(0.2)
+    @utils.debounce(config.Zombie.reduce_heat_debounce)
     def reduce_heat(self):
         self.heat = max(0, self.heat - 1)
-
-    def cry(self, signal):
-        now = perf_counter()
-        if now - self.last_cry <= 0.25:
-            return
-        if self.chase_target:
-            signal(Cry(self))
-            self.last_cry = now
 
     def on_cry(self, event, signal):
         if not self.chase_target and (self.position - event.source.position).length >= self.awareness:
@@ -114,22 +144,24 @@ class Zombie(ppb.Sprite):
 
 
 class Skeleton(Zombie):
-    speed_modifer = 1.2
-    awareness = 8
+    speed_modifer = config.Skeleton.speed_modifer
+    awareness = config.Skeleton.awareness
     image = ppb.Circle(240, 240, 255)
-    size = 0.8
-    points = 15
-    attack_range = 3
+    size = config.Skeleton.size
+    points = config.Skeleton.point_value
+    attack_range = config.Skeleton.attack_range
 
     @classmethod
     def spawn(cls, scene):
         top_limit, right_limit, bottom_limit, left_limit = scene.play_space_limits
-        spawn_position = ppb.Vector(
-            uniform(left_limit, right_limit),
-            uniform(top_limit, bottom_limit)
-        )
-        player = next(scene.get(kind=player_module.Player))
-        if (player.position - spawn_position).length <= cls.awareness:
-            return
-        scene.add(cls(position=spawn_position))
-        scene.spawned += 1
+        count = randint(1, scene.level) if scene.level > 1 else 1
+        for _ in range(count):
+            spawn_position = ppb.Vector(
+                uniform(left_limit, right_limit),
+                uniform(top_limit, bottom_limit)
+            )
+            player = next(scene.get(kind=player_module.Player))
+            if (player.position - spawn_position).length <= cls.awareness:
+                continue
+            scene.add(cls(position=spawn_position))
+            scene.spawned += 1

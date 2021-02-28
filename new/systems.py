@@ -11,10 +11,15 @@ from shared import FONT
 class ScoreDisplay(ppb.RectangleSprite):
     score = 0
     layer = 100
+    offset = ppb.Vector(0, 0)
+    height = 1.5
 
     @property
     def image(self):
         return ppb.Text(f"Score: {self.score}", font=FONT, color=(255, 255, 255))
+
+    def on_pre_render(self, event: ppb.events.PreRender, signal):
+        self.position = event.scene.main_camera.position + self.offset
 
 
 class ScoreSystem(systemslib.System):

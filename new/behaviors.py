@@ -10,6 +10,38 @@ import enemies
 import players
 
 
+class GlobalDebounce(misbehave.decorator.Decorator):
+    """
+    Debounces for all objects using the same tree.
+
+    Replaces need for global blackboard.
+    """
+    last_call = 0
+
+    def __init__(self, child, cooldown=.5):
+        super().__init__(child, cooldown=cooldown)
+        self.cooldown = cooldown
+
+    def __call__(self, actor: enemies.Zombie, context: enemies.Context):
+        now = perf_counter()
+        if now >= self.last_call + self.cooldown:
+            result = super().__call__(actor, context)
+            if result == misbehave.State.SUCCESS:
+                self.last_call = now
+            return result
+        return misbehave.State.FAILED
+
+
+def signal_cry(actor: enemies.Zombie, context: enemies.Context) -> misbehave.State:
+    context.signal(enemies.Cry(actor))
+    return misbehave.State.SUCCESS
+
+
+def add_debug_object(actor: ppb.Sprite, context: enemies.Context) -> misbehave.State:
+    context.event.scene.add(enemies.CryDebug(position=actor.position))
+    return misbehave.State.SUCCESS
+
+
 def compare_heat(child):
 
     def compare_heat_inner(actor: enemies.Zombie, context: Any) -> misbehave.State:
@@ -139,10 +171,20 @@ def octogon(magnitude=0.5):
     )
 
 
-chase_tree = misbehave.selector.Sequence(
-    misbehave.action.CheckValue("chase_target"),
-    move_to_target("chase_target"),
-    misbehave.action.SetValue("chase_target", None),
+chase_tree = misbehave.selector.Concurrent(
+    misbehave.selector.Sequence(
+        misbehave.action.CheckValue("chase_target"),
+        move_to_target("chase_target"),
+        misbehave.action.SetValue("chase_target", None),
+    ),
+    GlobalDebounce(
+        misbehave.selector.Sequence(
+            misbehave.action.CheckValue("chase_target"),
+            signal_cry
+        ),
+        cooldown=1.5  # TODO: Magic Number
+    ),
+    num_fail=2
 )
 
 wander_tree = misbehave.selector.Sequence(
@@ -173,7 +215,6 @@ lunge_tree = misbehave.selector.Sequence(
 on_fire_tree = compare_heat(
     misbehave.selector.Sequence(
         pick_random_direction("flee_direction"),
-        lambda x, y: print("Flee target chosen."),
         misbehave.action.SetCurrentTime("flee_start"),
         wander(
             "flee_direction",
@@ -188,8 +229,8 @@ on_fire_tree = compare_heat(
 )
 
 zombie_base_tree = misbehave.selector.Priority(
-    lunge_tree,
     on_fire_tree,
+    lunge_tree,
     misbehave.selector.Concurrent(
         chase_tree,
         check_if_player_is_close(
