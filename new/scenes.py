@@ -31,11 +31,14 @@ class LifeDisplay(ppb.Sprite):
     empty_image = ppb.Image('empty-heart.png')
     image = full_image
     layer = 100
+    offset = ppb.Vector(0, 0)
 
-    def on_pre_render(self, event, signal):
+    def on_pre_render(self, event: ppb.events.PreRender, signal):
         player = next(event.scene.get(kind=players.Player))
         if player.life < self.health_value:
             self.image = self.empty_image
+        camera = event.scene.main_camera
+        self.position = camera.position + self.offset
 
 
 class Collider(gomlib.GameObject):
@@ -169,9 +172,9 @@ class Game(ppb.BaseScene):
         super().__init__(**props)
         self.add(players.Player(player_life=10))
         self.add(Collider())
-        self.add(systems.ScoreDisplay(position=ppb.Vector(8, 16)))
+        self.add(systems.ScoreDisplay(offset=ppb.Vector(12, 16)))
         for value in range(1, 11):
-            self.add(LifeDisplay(health_value=value, position=(ppb.Vector(-8 + (-1.5 * value), 16))))
+            self.add(LifeDisplay(health_value=value, offset=(ppb.Vector(-8 + (-1.5 * value), 16))))
         self.spawn_timers = {
             enemies.Zombie: [3.0, 0.0],  # TODO: Magic Number
             enemies.Skeleton: [12.0, 6.0]  # TODO: Magic Number
