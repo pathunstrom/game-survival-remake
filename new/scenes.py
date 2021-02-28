@@ -167,6 +167,7 @@ class Game(ppb.BaseScene):
     current_generator = None
     spawn_limit = 25
     spawned = 0
+    camera_new_blend = .05
 
     def __init__(self, player_life=10, **props):
         super().__init__(**props)
@@ -226,7 +227,9 @@ class Game(ppb.BaseScene):
             else:
                 for item in items:
                     self.add(item)
-        self.main_camera.position = next(self.get(kind=players.Player)).position
+        cam = self.main_camera
+        player = next(self.get(kind=players.Player))
+        cam.position = cam.position * (1 - self.camera_new_blend) + player.position * self.camera_new_blend
 
     def on_game_over(self, event: events.GameOver, signal):
         signal(ppb.events.ReplaceScene(GameOverScene))
