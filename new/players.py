@@ -1,5 +1,6 @@
 from __future__ import annotations
 from random import randint, uniform
+from time import perf_counter
 
 import ppb
 from ppb import buttons
@@ -15,9 +16,16 @@ class Bullet(ppb.Sprite):
     size = 0.5
     speed_modifer = 3
     direction = ppb.directions.Up
+    max_distance = 5
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.starting_position = self.position
 
     def on_update(self, event: ppb.events.Update, signal):
         self.position += self.direction * self.speed_modifer * BASE_SPEED * event.time_delta
+        if (self.position - self.starting_position).length >= self.max_distance:
+            event.scene.remove(self)
 
 
 class Player(ppb.Sprite):
@@ -26,13 +34,20 @@ class Player(ppb.Sprite):
     life = 10
     heat = 0
     max_heat = 10
+    primary_cooldown = .4
+    last_fire_weapon_primary = 0
+    secondary_cooldown = 1
+    last_fire_weapon_secondary = 0
 
     def on_button_released(self, event: ppb.events.ButtonReleased, signal):
-        if event.button is ppb.buttons.Primary:
+        now = perf_counter()
+        if event.button is ppb.buttons.Primary and now > self.last_fire_weapon_primary + self.primary_cooldown:
             direction = (event.position - self.position).normalize()
-            event.scene.add(Bullet(position=self.position + direction, direction=direction, facing=direction))
+            event.scene.add(Bullet(position=self.position + direction, direction=direction, facing=direction,
+                                   max_distance=15))
             signal(events.ShotFired(self.position, 1))
-        elif event.button is ppb.buttons.Secondary:
+            self.last_fire_weapon_primary = now
+        elif event.button is ppb.buttons.Secondary and now > self.last_fire_weapon_secondary + self.secondary_cooldown:
             direction = (event.position - self.position).normalize()
             for _ in range(randint(1, 2) + randint(1, 2) + randint(0, 1)):
                 new_facing = direction.rotate(uniform(-40, 40))
@@ -44,6 +59,7 @@ class Player(ppb.Sprite):
                     )
                 )
             signal(events.ShotFired(self.position, 5))
+            self.last_fire_weapon_secondary = now
 
     def on_update(self, event: ppb.events.Update, signal):
         velocity = event.movement
