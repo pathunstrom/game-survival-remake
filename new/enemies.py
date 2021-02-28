@@ -1,4 +1,5 @@
 from __future__ import annotations
+import math
 from dataclasses import dataclass
 from random import randint, uniform
 from time import perf_counter
@@ -42,6 +43,14 @@ class Zombie(ppb.Sprite):
     chase_target = None
     last_cry = 0
 
+    spawn_multiplier = 3
+    min_first_cut = 0.5
+    max_first_cut = 0.25
+    min_second_cut = 0.25
+    max_second_cut = 0.5
+    min_third_cut = 0.25
+    max_third_cut = 0.25
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -77,7 +86,22 @@ class Zombie(ppb.Sprite):
         player = next(scene.get(kind=player_module.Player))
         if (player.position - group_origin).length <= cls.awareness + 2.5:
             return
-        for _ in range(randint(1, 2) + randint(0, 2) + randint(0, 1)):
+        # Minimum  == level,  1/2 round up to fist, then 1/4 and 1/4 round down
+        # Maximum == level * 3, 1/4 1/2 1/4
+        # Level 1: minimum == 1 randint min 1, randint min 0, randint min 0
+        # Level 1: maximum == 4 randint max 1, ranint max 2, randint max 1
+        # 1 and 4 randint(1, 2), randint(0, 2), randint(0, 1)
+        level = scene.level
+        spawn_max = level * cls.spawn_multiplier
+
+        first_min = math.ceil(level * cls.min_first_cut)
+        first_max = max(first_min, math.floor(spawn_max * cls.max_first_cut))
+        second_min = math.floor(level * cls.min_second_cut)
+        second_max = max(second_min, math.ceil(spawn_max * cls.max_second_cut))
+        third_min = math.floor(level * cls.min_second_cut)
+        third_max = max(third_min, math.floor(spawn_max * cls.max_third_cut))
+
+        for _ in range(randint(first_min, first_max) + randint(second_min, second_max) + randint(third_min, third_max)):
             offset_vector = ppb.Vector(uniform(-2.5, 2.5), uniform(-2.5, 2.5))
             spawn_position = group_origin + offset_vector
             if ((player.position - spawn_position).length <= cls.awareness
@@ -124,12 +148,14 @@ class Skeleton(Zombie):
     @classmethod
     def spawn(cls, scene):
         top_limit, right_limit, bottom_limit, left_limit = scene.play_space_limits
-        spawn_position = ppb.Vector(
-            uniform(left_limit, right_limit),
-            uniform(top_limit, bottom_limit)
-        )
-        player = next(scene.get(kind=player_module.Player))
-        if (player.position - spawn_position).length <= cls.awareness:
-            return
-        scene.add(cls(position=spawn_position))
-        scene.spawned += 1
+        count = randint(1, scene.level) if scene.level > 1 else 1
+        for _ in range(count):
+            spawn_position = ppb.Vector(
+                uniform(left_limit, right_limit),
+                uniform(top_limit, bottom_limit)
+            )
+            player = next(scene.get(kind=player_module.Player))
+            if (player.position - spawn_position).length <= cls.awareness:
+                continue
+            scene.add(cls(position=spawn_position))
+            scene.spawned += 1

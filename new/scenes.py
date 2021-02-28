@@ -246,7 +246,7 @@ class Game(ppb.BaseScene):
         left = self.play_space_limits[3] - 1
         right = self.play_space_limits[1] + 1
         bottom = self.play_space_limits[2] - 1
-        print(top, right, left, bottom)
+
         all_walls.extend([ppb.Vector(x, top) for x in range(left, right + 1, 2)])  # Top walls
         all_walls.extend([ppb.Vector(x, bottom) for x in range(left, right + 1, 2)])  # Bottom walls
         all_walls.extend([ppb.Vector(left, x) for x in range(bottom, top, 2)])  # Left walls
