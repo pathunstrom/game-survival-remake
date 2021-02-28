@@ -173,8 +173,8 @@ class Game(ppb.BaseScene):
         for value in range(1, 11):
             self.add(LifeDisplay(health_value=value, position=(ppb.Vector(-8 + (-1.5 * value), 16))))
         self.spawn_timers = {
-            enemies.Zombie: [3.0, 0.0],
-            enemies.Skeleton: [12.0, 6.0]
+            enemies.Zombie: [3.0, 0.0],  # TODO: Magic Number
+            enemies.Skeleton: [12.0, 6.0]  # TODO: Magic Number
         }
         # Build Level
         self.generators = [self.generate_walls, self.generate_hazards]
@@ -191,17 +191,20 @@ class Game(ppb.BaseScene):
         if not self.level_spawned:
             return
 
+        no_enemies = not list(self.get(kind=enemies.Zombie))
         if self.spawned >= self.spawn_limit:
-            if not list(self.get(kind=enemies.Zombie)):
+            if no_enemies:
                 signal(ppb.events.ReplaceScene(Game, kwargs={"level": self.level + 1}))
             return
 
         for kind, timer in self.spawn_timers.items():
             timer[1] -= event.time_delta
+            default = timer[0]
             if timer[1] <= 0:
                 kind.spawn(self)
-                default = timer[0]
                 timer[1] = (default * 0.5) + (default * uniform(0, 1))
+            elif no_enemies:
+                timer[1] /= 2
 
     def on_pre_render(self, event, signal):
         if not self.level_spawned:
